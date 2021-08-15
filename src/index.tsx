@@ -1,6 +1,6 @@
 /// <reference path="./global.d.ts" />
 import { join, resolve } from "https://deno.land/std@0.104.0/path/mod.ts";
-import { yellow, green } from "https://deno.land/std@0.104.0/fmt/colors.ts";
+import { green, yellow } from "https://deno.land/std@0.104.0/fmt/colors.ts";
 import { existsSync } from "https://deno.land/std@0.104.0/fs/mod.ts";
 import { parse as parseToml } from "https://deno.land/std@0.104.0/encoding/toml.ts";
 import React from "https://esm.sh/react@17.0.2?dts";
@@ -22,7 +22,9 @@ import { handleSocket } from "./socket.ts";
 import { useFileServe } from "./fileServ.ts";
 import { sheet } from "./style.tsx";
 
-const defaultConfigContent = Leaf.readTextFileSync("./assets/defaultConfig.toml");
+const defaultConfigContent = Leaf.readTextFileSync(
+  "./assets/defaultConfig.toml",
+);
 
 window.siteSettings = {
   siteTitle: "",
@@ -44,12 +46,18 @@ const denoLogger = async (
   const ua = request.headers.get("user-agent") || "-";
   const ref = request.headers.get("referer") || "-";
   const status = response.status;
+  let path: string;
+  try {
+    path = request.url.pathname;
+  } catch {
+    path = "/";
+  }
   const logString = `${request.ip} - - [${
     new Date().toLocaleString()
-  }] "${request.method} ${request.url.pathname}" ${
-    status.toString(10)
-  }  ${ua} ${ref} ${(end -
-    start).toFixed(3)}ms`;
+  }] "${request.method} ${path}" ${status.toString(10)}  ${ua} ${ref} ${
+    (end -
+      start).toFixed(3)
+  }ms`;
   Deno.stdout.write(encoder.encode(logString + "\n"));
 };
 
@@ -91,7 +99,7 @@ app
     const configFilePath = resolve(join(Deno.cwd(), options.config));
     if (!existsSync(configFilePath)) {
       console.log(yellow("Creating default config at: " + configFilePath));
-      const file = Deno.openSync(configFilePath, {create: true, write: true});
+      const file = Deno.openSync(configFilePath, { create: true, write: true });
       file.writeSync(encoder.encode(defaultConfigContent));
       file.close();
     }
@@ -106,7 +114,7 @@ app
     // @ts-ignore: "input"
     const { bind } = config.lg.server;
     // @ts-ignore: "input"
-    delete window.siteSettings.server
+    delete window.siteSettings.server;
     const httpServer = new Application({ serverConstructor: HttpServerStd });
     httpServer.use(denoLogger);
     useFileServe(httpServer);
@@ -116,5 +124,5 @@ app
     console.log(green(`Listening on ${bind}`));
   });
 
-app.version("0.1.3");
+app.version("0.2.0");
 app.parse();
