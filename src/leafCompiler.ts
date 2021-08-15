@@ -178,7 +178,6 @@ export class Leaf {
     cmd = [
       ...cmd,
       "--unstable",
-      "--allow-read",
       "--allow-all",
       "--output",
       outputFilename,

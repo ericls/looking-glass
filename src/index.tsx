@@ -1,6 +1,6 @@
 /// <reference path="./global.d.ts" />
 import { join, resolve } from "https://deno.land/std@0.104.0/path/mod.ts";
-import { yellow } from "https://deno.land/std@0.104.0/fmt/colors.ts";
+import { yellow, green } from "https://deno.land/std@0.104.0/fmt/colors.ts";
 import { existsSync } from "https://deno.land/std@0.104.0/fs/mod.ts";
 import { parse as parseToml } from "https://deno.land/std@0.104.0/encoding/toml.ts";
 import React from "https://esm.sh/react@17.0.2?dts";
@@ -113,6 +113,7 @@ app
     httpServer.use(router.routes());
     httpServer.use(router.allowedMethods());
     httpServer.listen(bind);
+    console.log(green(`Listening on ${bind}`));
   });
 
 app.version("0.1.3");

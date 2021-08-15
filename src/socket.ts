@@ -1,10 +1,9 @@
+import { yellow } from "https://deno.land/std@0.104.0/fmt/colors.ts";
 import { BufReader } from "https://deno.land/std@0.104.0/io/bufio.ts";
-import { Buffer } from "https://deno.land/std@0.104.0/io/buffer.ts";
-import { copy } from "https://deno.land/std@0.104.0/io/util.ts";
 import { concat } from "https://deno.land/std@0.104.0/bytes/mod.ts";
 import { IPv6, IPv6CidrRange, Validator } from "https://esm.sh/ip-num@1.3.3";
 
-import RateLimiter from "./rateLimit.ts"
+import RateLimiter from "./rateLimit.ts";
 
 const privateIPv6Range = IPv6CidrRange.fromCidr("fd00::/7");
 
@@ -57,7 +56,7 @@ type Executor = (...args: any[]) => Deno.Reader | null;
 const execPing: Executor = (ip: string) => {
   if (!isValidV4(ip)) return null;
   const process = Deno.run({
-    cmd: ["ping", ip, "-t", "4"],
+    cmd: ["ping", ip, "-c", "4"],
     stdin: "piped",
     stderr: "piped",
     stdout: "piped",
@@ -69,7 +68,7 @@ const execPing: Executor = (ip: string) => {
 const execPing6: Executor = (ip: string) => {
   if (!isValidV6(ip)) return null;
   const process = Deno.run({
-    cmd: ["ping6", ip, "-t", "4"],
+    cmd: ["ping6", ip, "-c", "4"],
     stdin: "piped",
     stderr: "piped",
     stdout: "piped",
@@ -117,11 +116,7 @@ const execTraceroute6: Executor = (host: string) => {
     stderr: "piped",
     stdout: "piped",
   });
-  const stream = new Buffer();
-  stream.writeSync(new Uint8Array([63]));
-  copy(process.stdout, stream);
-  copy(process.stderr, stream);
-  return stream;
+  return process.stdout;
 };
 
 async function readFullLine(bufReader: BufReader): Promise<Uint8Array | null> {
@@ -182,6 +177,16 @@ async function executeCommand(
     type: "EOF",
   });
 }
+
+const checkCommand = (command: string) => {
+  try {
+    Deno.run({ cmd: [command], stderr: "null", stdin: "null", stdout: "null" });
+  } catch {
+    console.log(yellow(`Command ${command} is not installed.`));
+  }
+};
+
+["ping", "ping6", "traceroute", "host"].map((c) => checkCommand(c));
 
 const limiter = new RateLimiter(5 * 1000);
 export function handleSocket(socket: WebSocket, ip: string) {
