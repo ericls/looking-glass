@@ -1,0 +1,17 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"deno.lint": true,
+		"deno.unstable": true,
+		"deno.suggest.imports.hosts": {
+			"https://esm.sh": false,
+			"https://deno.land": false,
+			"https://cdn.skypack.dev": false,
+			"https://cdn.pika.dev": false
+		}
+	}
+}

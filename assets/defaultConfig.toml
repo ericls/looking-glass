@@ -1,0 +1,28 @@
+[lg]
+serverLocation = "<Location>"
+siteTitle = "Looking Glass"
+sitePageHeader = "My Looking Glass"
+
+[lg.server]
+bind = "127.0.0.1:8000"  # listening interface and port
+
+# these ip address are for display purpose only
+[[lg.ipAddress]]
+label = "IPv4"
+value = "127.0.0.1"
+
+[[lg.ipAddress]]
+label = "IPv6"
+value = "::1"
+
+[[lg.ipAddress]]
+label = "Some other ip"
+value = "1.1.1.1"
+
+# links
+[[lg.links]]
+title = "Example"
+href = "https://example.com"
+[[lg.links]]
+title = "Google"
+href = "https://google.ca"
