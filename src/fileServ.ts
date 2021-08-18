@@ -2,7 +2,24 @@ import {
   Application,
   parseRange,
   Router,
-} from "https://deno.land/x/oak@v8.0.0/mod.ts";
+} from "https://deno.land/x/oak@v9.0.0/mod.ts";
+
+const FILLER_LENGTH = 32768;
+const FILLER_BYTES: Readonly<Uint8Array> = new Uint8Array(FILLER_LENGTH);
+crypto.getRandomValues(FILLER_BYTES);
+
+function fill(p: Uint8Array) {
+  let remLength = p.byteLength;
+  while (remLength) {
+    if (remLength >= FILLER_LENGTH) {
+      p.set(FILLER_BYTES, p.byteLength - remLength);
+      remLength -= FILLER_LENGTH;
+    } else {
+      p.set(FILLER_BYTES.slice(0, remLength), p.byteLength - remLength);
+      remLength = 0;
+    }
+  }
+}
 
 class FakeFileReader implements Deno.Reader {
   private readBytes = 0;
@@ -11,7 +28,7 @@ class FakeFileReader implements Deno.Reader {
   read = async (p: Uint8Array): Promise<number | null> => {
     const remLength = this.size - this.readBytes;
     if (remLength <= 0) return null;
-    crypto.getRandomValues(p);
+    fill(p)
     const reportingLength = Math.min(p.byteLength, remLength);
     this.readBytes += reportingLength;
     return reportingLength;

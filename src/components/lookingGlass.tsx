@@ -5,23 +5,25 @@ import { useOakContext } from "./context.tsx";
 import { NetworkTests } from "./networkTests.tsx";
 import { DataItem } from "./misc.tsx";
 import { SIZES } from "../fileServ.ts";
+import Settings from "../settings.ts"
 
 export default function LookingGlass() {
+  const settings = Settings.getSettings();
   const oakContext = useOakContext();
   return (
     <body className={sheet.classes.body}>
       <div className={sheet.classes.container}>
         <h1 className={sheet.classes.pageHeader}>
-          {window.siteSettings.sitePageHeader}
+          {settings.sitePageHeader}
         </h1>
         <div className={sheet.classes.box}>
           <h3 className={cx(sheet.classes.h3)}>Network Information</h3>
           <div className={sheet.classes.dataList}>
             <DataItem
               label={"Server location"}
-              value={<b>{window.siteSettings.serverLocation}</b>}
+              value={<b>{settings.serverLocation}</b>}
             />
-            {window.siteSettings.ipAddress.map(({ label, value }) => {
+            {settings.ipAddress.map(({ label, value }) => {
               return <DataItem label={label} value={value} />;
             })}
             <DataItem
@@ -51,11 +53,11 @@ export default function LookingGlass() {
         <div className={sheet.classes.box} id="ntest">
           <NetworkTests />
         </div>
-        {!!window.siteSettings.links.length && (
+        {!!settings.links.length && (
           <div className={sheet.classes.box}>
             <h3 className={cx(sheet.classes.h3)}>Links</h3>
             <div className={sheet.classes.linkList}>
-              {window.siteSettings.links.map(({ title, href }) => {
+              {settings.links.map(({ title, href }) => {
                 return (
                   <a
                     href={href}

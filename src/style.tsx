@@ -80,6 +80,9 @@ export const sheet = jss
         height: '28px',
       },
     },
+    inputError: {
+      border: "solid 1px #dc3545",
+    },
     resultBox: {
       fontFamily: "monospace",
       fontSize: 14,

@@ -3,13 +3,13 @@ import React from "https://esm.sh/react@17.0.2?dts";
 import { sheet } from "../style.tsx";
 import LookingGlass from "./lookingGlass.tsx";
 import Footer from "./footer.tsx";
-
+import Settings from "../settings.ts";
 
 export function Root() {
   return (
     <html lang="en">
       <head>
-        <title>{window.siteSettings.siteTitle}</title>
+        <title>{Settings.getSettings().siteTitle}</title>
         <script src="/index.js"></script>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link

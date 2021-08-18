@@ -22,7 +22,7 @@ const isPrivateV6 = (ip: string) => {
 
 const isValidV4 = (ip: string) => {
   try {
-    return Validator.isValidIPv4String(ip) && !isPrivateV4(ip);
+    return Validator.isValidIPv4String(ip)[0] && !isPrivateV4(ip);
   } catch {
     return false;
   }
@@ -30,7 +30,7 @@ const isValidV4 = (ip: string) => {
 
 const isValidV6 = (ip: string) => {
   try {
-    return Validator.isValidIPv6String(ip) && !isPrivateV6(ip);
+    return Validator.isValidIPv6String(ip)[0] && !isPrivateV6(ip);
   } catch {
     return false;
   }
@@ -51,7 +51,9 @@ type ReceivedMessage = {
 const decoder = new TextDecoder();
 
 // Executors
-type Executor = (...args: any[]) => Deno.Reader | null;
+type Executor = (
+  ...args: string[]
+) => Deno.Process<{ cmd: string[]; stdout: "piped" }> | null;
 
 const execPing: Executor = (ip: string) => {
   if (!isValidV4(ip)) return null;
@@ -61,8 +63,8 @@ const execPing: Executor = (ip: string) => {
     stderr: "piped",
     stdout: "piped",
   });
-  process.stderr.read(new Uint8Array(10)).then(() => process.kill(9));
-  return process.stdout!;
+  process.stderr.read(new Uint8Array(10)).then(() => process.kill(15));
+  return process;
 };
 
 const execPing6: Executor = (ip: string) => {
@@ -73,8 +75,8 @@ const execPing6: Executor = (ip: string) => {
     stderr: "piped",
     stdout: "piped",
   });
-  process.stderr.read(new Uint8Array(10)).then(() => process.kill(9));
-  return process.stdout!;
+  process.stderr.read(new Uint8Array(10)).then(() => process.kill(15));
+  return process;
 };
 
 const execHost: Executor = (host: string) => {
@@ -85,8 +87,8 @@ const execHost: Executor = (host: string) => {
     stderr: "piped",
     stdout: "piped",
   });
-  process.stderr.read(new Uint8Array(10)).then(() => process.kill(9));
-  return process.stdout!;
+  process.stderr.read(new Uint8Array(10)).then(() => process.kill(15));
+  return process;
 };
 
 const execTraceroute4: Executor = (host: string) => {
@@ -101,7 +103,7 @@ const execTraceroute4: Executor = (host: string) => {
     stderr: "piped",
     stdout: "piped",
   });
-  return process.stdout;
+  return process;
 };
 
 const execTraceroute6: Executor = (host: string) => {
@@ -116,7 +118,7 @@ const execTraceroute6: Executor = (host: string) => {
     stderr: "piped",
     stdout: "piped",
   });
-  return process.stdout;
+  return process;
 };
 
 async function readFullLine(bufReader: BufReader): Promise<Uint8Array | null> {
@@ -137,30 +139,12 @@ async function readFullLine(bufReader: BufReader): Promise<Uint8Array | null> {
   return concat(...chunks);
 }
 
-async function executeCommand(
+async function sendStdOut(
+  process: NonNullable<ReturnType<Executor>>,
   socket: WebSocket,
   id: string,
-  command: string,
-  args: string[],
 ) {
-  if (!args.length) return;
-  let reader: Deno.Reader | null = null;
-  if (command === "ping") {
-    reader = execPing(args[0]);
-  } else if (command === "ping6") {
-    reader = execPing6(args[0]);
-  } else if (command === "host") {
-    reader = execHost(args[0]);
-  } else if (command === "traceroute4") {
-    reader = execTraceroute4(args[0]);
-  } else if (command === "traceroute6") {
-    reader = execTraceroute6(args[0]);
-  }
-  if (!reader) {
-    socket.send(JSON.stringify({ id, type: "ERROR" }));
-    return;
-  }
-  const bufReader = new BufReader(reader, 1024);
+  const bufReader = new BufReader(process.stdout, 1024);
   while (true) {
     const line = await readFullLine(bufReader);
     if (!line) break;
@@ -172,10 +156,54 @@ async function executeCommand(
       }),
     );
   }
-  JSON.stringify({
-    id,
-    type: "EOF",
+}
+
+function pipeOrTimeout(
+  process: NonNullable<ReturnType<Executor>>,
+  socket: WebSocket,
+  id: string,
+  timeout = 5 * 60 * 1000,
+) {
+  const task1 = sendStdOut(process, socket, id);
+  const task2 = new Promise<void>((resolve) => {
+    setTimeout(() => {
+      process.kill(15);
+      resolve();
+    }, timeout);
   });
+  return Promise.race([task1, task2]);
+}
+
+async function executeCommand(
+  socket: WebSocket,
+  id: string,
+  command: string,
+  args: string[],
+) {
+  if (!args.length) return;
+  let process: ReturnType<Executor> = null;
+  if (command === "ping") {
+    process = execPing(args[0]);
+  } else if (command === "ping6") {
+    process = execPing6(args[0]);
+  } else if (command === "host") {
+    process = execHost(args[0]);
+  } else if (command === "traceroute4") {
+    process = execTraceroute4(args[0]);
+  } else if (command === "traceroute6") {
+    process = execTraceroute6(args[0]);
+  }
+  if (!process) {
+    socket.send(JSON.stringify({ id, type: "ERROR" }));
+    return;
+  }
+  await pipeOrTimeout(process, socket, id);
+  socket.send(
+    JSON.stringify({
+      id,
+      type: "EOF",
+    }),
+  );
 }
 
 const checkCommand = (command: string) => {
@@ -191,9 +219,9 @@ const checkCommand = (command: string) => {
 const limiter = new RateLimiter(5 * 1000);
 export function handleSocket(socket: WebSocket, ip: string) {
   socket.addEventListener("message", (event) => {
+    if (limiter.get(ip) > 5) return;
     const message = JSON.parse(event.data) as ReceivedMessage;
     const { command, id, args } = message;
-    if (limiter.get(ip) > 5) return;
     executeCommand(socket, id, command, args);
     limiter.incr(ip);
   });

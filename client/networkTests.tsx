@@ -38,6 +38,9 @@ class SocketClient {
     const { id, type } = message;
     if (!(id in this.executionOutput)) return;
     const subject = this.executionOutput[id];
+    if (type === "ERROR") {
+      subject.error("input error");
+    }
     if (type === "EOF" || type === "ERROR") {
       subject.complete();
       delete this.executionOutput[id];
@@ -56,7 +59,13 @@ class SocketClient {
   };
 }
 
-function NetworkTestResult({ id }: { id: string }) {
+function NetworkTestResult({
+  id,
+  onError,
+}: {
+  id: string;
+  onError: () => void;
+}) {
   const [lines, setLines] = React.useState<string[]>([]);
   const addLine = React.useCallback(
     (line: string) => {
@@ -68,9 +77,12 @@ function NetworkTestResult({ id }: { id: string }) {
     setLines([]);
   }, [id, setLines]);
   React.useEffect(() => {
-    const sub = SocketClient.getClient().executionOutput[id].subscribe(addLine);
+    const sub = SocketClient.getClient().executionOutput[id]?.subscribe(
+      addLine,
+      onError
+    );
     return () => {
-      sub.unsubscribe();
+      sub?.unsubscribe();
     };
   }, [addLine, id]);
   if (!lines.length) return null;
@@ -83,6 +95,10 @@ export default function NetworkTests() {
   const [currentResultId, setCurrentResultId] = React.useState<null | string>(
     null
   );
+  const [hadError, setHadError] = React.useState(false);
+  const onError = React.useCallback(() => {
+    setHadError(true);
+  }, [setHadError]);
   const onSubmit = React.useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
@@ -92,9 +108,10 @@ export default function NetworkTests() {
       const command = formData.get("command");
       const id = client.executeCommand(command as Command, [String(args)]);
       setCurrentResultId(id);
+      setHadError(false);
       e.stopPropagation();
     },
-    [client, setCurrentResultId]
+    [client, setCurrentResultId, setHadError]
   );
   return (
     <>
@@ -104,7 +121,11 @@ export default function NetworkTests() {
         onSubmit={onSubmit}
         ref={formRef}
       >
-        <input name="args" placeholder="Host or IP address"></input>
+        <input
+          name="args"
+          placeholder="Host or IP address"
+          className={cx({ [window.classes.inputError]: hadError })}
+        ></input>
         <select name="command">
           <option value="ping">ping</option>
           <option value="ping6">ping6</option>
@@ -114,7 +135,9 @@ export default function NetworkTests() {
         </select>
         <button type="submit">Run</button>
       </form>
-      {currentResultId && <NetworkTestResult id={currentResultId} />}
+      {currentResultId && (
+        <NetworkTestResult id={currentResultId} onError={onError} />
+      )}
     </>
   );
 }

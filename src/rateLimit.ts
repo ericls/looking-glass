@@ -9,14 +9,17 @@ export default class RateLimiter {
       this.clientCounter[id] += 1;
     }
     setTimeout(() => {
-        this.decr(id);
+      this.decr(id);
     }, this.window);
   };
   get = (id: string) => {
-      return this.clientCounter[id] || 0;
-  }
+    return this.clientCounter[id] || 0;
+  };
   private decr = (id: string) => {
-      if (!(id in this.clientCounter)) return;
-      this.clientCounter[id] -= 1;
-  }
+    if (!(id in this.clientCounter)) return;
+    this.clientCounter[id] -= 1;
+    if (this.clientCounter[id] <= 0) {
+      delete this.clientCounter[id];
+    }
+  };
 }
